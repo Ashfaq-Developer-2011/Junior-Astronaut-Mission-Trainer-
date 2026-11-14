@@ -1,0 +1,8 @@
+{
+  "name": "Remix Junior Astronaut Mission Trainer version 2",
+  "description": "An interactive NASA-inspired space exploration and habitat engineering simulator for young commanders. Make critical survival trade-offs on the Moon and Mars.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
