@@ -8,7 +8,6 @@ import { GameContainer } from './game/GameContainer';
 import { PlanetType } from './types/survival';
 import { NasaScienceDrawer } from './components/NasaScienceDrawer';
 import { InteractiveTutorial } from './components/InteractiveTutorial';
-import { CustomModelModal } from './components/CustomModelModal';
 import {
   fetchPhase2ScienceBundle,
   Phase2ScienceBundle,
@@ -29,13 +28,26 @@ type AppScreen =
   | 'game';
 
 export default function App() {
-  const [screen, setScreen] = useState<AppScreen>('welcome');
-  const [selectedPlanet, setSelectedPlanet] = useState<PlanetType>('moon');
+  const [screen, setScreen] = useState<AppScreen>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('screen');
+      if (p === 'game' || p === 'destination' || p === 'briefing' || p === 'astronaut' || p === 'welcome') {
+        return p as AppScreen;
+      }
+    }
+    return 'welcome';
+  });
+  const [selectedPlanet, setSelectedPlanet] = useState<PlanetType>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('planet');
+      if (p === 'moon' || p === 'mars') return p as PlanetType;
+    }
+    return 'moon';
+  });
   const [callsign, setCallsign] = useState('Eagle-1');
   const [avatar, setAvatar] = useState('👩‍🚀');
   const [showScience, setShowScience] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [showCustomModel, setShowCustomModel] = useState(false);
 
   const [savedGame, setSavedGame] = useState<SaveGameV1 | null>(null);
   const [activeResumeSave, setActiveResumeSave] = useState<SaveGameV1 | null>(null);
@@ -114,7 +126,6 @@ export default function App() {
           onDismissCorruptedNotice={() => setSaveCorruptedNotice(false)}
           onOpenScience={() => setShowScience(true)}
           onOpenTutorial={() => setShowTutorial(true)}
-          onOpenCustomModels={() => setShowCustomModel(true)}
         />
       )}
 
@@ -142,7 +153,6 @@ export default function App() {
           savedGame={savedGame}
           onChangeCallsign={setCallsign}
           onChangeAvatar={setAvatar}
-          onOpenCustomModels={() => setShowCustomModel(true)}
           onBack={() => setScreen('destination')}
           onLaunchMission={() => {
             void handleLaunchNewMission();
@@ -194,12 +204,6 @@ export default function App() {
           />
         </div>
       )}
-
-      {/* Custom 3D Model (.glb) Importer Modal */}
-      <CustomModelModal
-        isOpen={showCustomModel}
-        onClose={() => setShowCustomModel(false)}
-      />
     </div>
   );
 }

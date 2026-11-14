@@ -789,7 +789,6 @@ export const GameContainer: React.FC<GameContainerProps> = ({
           void persistCheckpoint();
         }}
         onExitHome={onExitToHome ? handleExitWithSave : undefined}
-        onOpenCustomModels={() => setShowCustomModels(true)}
         onOpenTutorial={() => {
           setShowPause(false);
           setShowTutorialOverlay(true);

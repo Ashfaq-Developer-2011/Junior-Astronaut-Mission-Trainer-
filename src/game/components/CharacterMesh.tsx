@@ -39,14 +39,12 @@ export const CharacterMesh: React.FC<CharacterMeshProps> = ({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <Suspense fallback={<ArticulatedAstronaut isMoving={isMoving} isSprinting={isSprinting} isJumping={isJumping} scale={scale} />}>
-        <NasaAstronautAvatar
-          isMoving={isMoving}
-          isSprinting={isSprinting}
-          isJumping={isJumping}
-          scale={scale}
-        />
-      </Suspense>
+      <ArticulatedAstronaut
+        isMoving={isMoving}
+        isSprinting={isSprinting}
+        isJumping={isJumping}
+        scale={scale}
+      />
     </group>
   );
 };

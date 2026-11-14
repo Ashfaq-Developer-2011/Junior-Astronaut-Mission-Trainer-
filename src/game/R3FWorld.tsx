@@ -403,6 +403,7 @@ const PlayerAvatarScene: React.FC<{
     isSprinting: false,
     isJumping: false
   });
+  const stepTimerRef = useRef(0);
 
   // Reset active inputs whenever game pauses so movement never gets stuck
   React.useEffect(() => {
@@ -502,14 +503,14 @@ const PlayerAvatarScene: React.FC<{
       rotRef.current += angleDiff * Math.min(1, 12 * dt);
     }
 
-    // 2. Jump and Ground Collision
+    // 2. Jump and Ground Collision & Audio
     const groundY = getTerrainHeight(posRef.current.x, posRef.current.z);
     const jumpPressed = input.jump || Boolean(vInput?.jump);
 
     if (jumpPressed && isGroundedRef.current) {
       velYRef.current = jumpForce;
       isGroundedRef.current = false;
-      sound.playLowRumble();
+      sound.playJump();
     }
 
     if (!isGroundedRef.current) {
@@ -520,9 +521,17 @@ const PlayerAvatarScene: React.FC<{
         posRef.current.y = groundY;
         velYRef.current = 0;
         isGroundedRef.current = true;
+        sound.playLand();
       }
     } else {
       posRef.current.y = groundY;
+      if (isMoving) {
+        stepTimerRef.current += dt * (isSprinting ? 9.5 : 5.5);
+        if (stepTimerRef.current > Math.PI) {
+          stepTimerRef.current = 0;
+          sound.playFootstep(planet);
+        }
+      }
     }
 
     // Apply transform directly to Three.js group at full framerate without React re-renders
@@ -639,7 +648,8 @@ export const R3FWorld: React.FC<R3FWorldProps> = ({
         antialias: !isSoftwareGl,
         powerPreference: 'high-performance',
         toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: planet === 'moon' ? 1.12 : 1.08
+        toneMappingExposure: planet === 'moon' ? 1.12 : 1.08,
+        preserveDrawingBuffer: true
       }}
       className="w-full h-full cursor-crosshair"
     >

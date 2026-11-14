@@ -76,9 +76,16 @@ const NasaHabitatModelInner: React.FC<NasaHabitatModuleProps> = ({
     return root;
   }, [part1.scene, part2.scene]);
 
+  const cupolaLightRef = useRef<THREE.PointLight>(null);
+  const timeRef = useRef(0);
+
   useFrame((_, rawDelta) => {
-    if (!rootRef.current || settleScaleRef.current >= 0.999) return;
     const dt = Math.min(Math.max(rawDelta, 0), 0.1);
+    timeRef.current += dt * 1.5;
+    if (cupolaLightRef.current) {
+      cupolaLightRef.current.intensity = 2.2 + Math.sin(timeRef.current) * 0.45;
+    }
+    if (!rootRef.current || settleScaleRef.current >= 0.999) return;
     settleScaleRef.current = THREE.MathUtils.damp(settleScaleRef.current, 1, 9, dt);
     rootRef.current.scale.setScalar(scale * settleScaleRef.current);
   });
@@ -90,8 +97,8 @@ const NasaHabitatModelInner: React.FC<NasaHabitatModuleProps> = ({
       {/* Airlock Entry Portal Beacon */}
       <pointLight position={[0, 4.5, 9.8]} intensity={2.6} distance={18} color="#34d399" />
 
-      {/* Cupola Observation Illumination */}
-      <pointLight position={[0, 11.8, 0]} intensity={2.2} distance={26} color="#7dd3fc" />
+      {/* Cupola Observation Illumination with Gentle Pulsing */}
+      <pointLight ref={cupolaLightRef} position={[0, 11.8, 0]} intensity={2.2} distance={26} color="#7dd3fc" />
 
       {/* Compacted Foundation Pad Ring & Contact Shadow */}
       <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, Box, Check, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react';
 import { PlanetType } from '../types/survival';
 import { SaveGameV1 } from '../services/saveSystem';
-import { useCustomModel } from '../hooks/useCustomModel';
 import { sound } from '../services/audio';
 
 interface AstronautSetupScreenProps {
@@ -12,7 +11,6 @@ interface AstronautSetupScreenProps {
   savedGame: SaveGameV1 | null;
   onChangeCallsign: (callsign: string) => void;
   onChangeAvatar: (avatar: string) => void;
-  onOpenCustomModels: () => void;
   onBack: () => void;
   onLaunchMission: () => void;
 }
@@ -31,13 +29,11 @@ export const AstronautSetupScreen: React.FC<AstronautSetupScreenProps> = ({
   savedGame,
   onChangeCallsign,
   onChangeAvatar,
-  onOpenCustomModels,
   onBack,
   onLaunchMission
 }) => {
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
-  const { meta: customAvatarMeta } = useCustomModel('avatar');
 
   const selectedAvatarLabel = AVATARS.find(a => a.emoji === avatar)?.label || 'Commander';
   const displayCallsign = callsign.trim() || 'Cadet-1';
@@ -103,12 +99,6 @@ export const AstronautSetupScreen: React.FC<AstronautSetupScreenProps> = ({
             <div className="text-xs font-mono-tech text-[#78A9C8]">
               Destination: {selectedPlanet === 'moon' ? 'Moon Base' : 'Mars Outpost'}
             </div>
-            {customAvatarMeta && (
-              <div className="mt-3 text-xs text-[#79A88B] flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>Custom 3D avatar: {customAvatarMeta.fileName}</span>
-              </div>
-            )}
           </div>
 
           {/* Setup Controls */}
@@ -157,23 +147,6 @@ export const AstronautSetupScreen: React.FC<AstronautSetupScreenProps> = ({
                   );
                 })}
               </div>
-            </div>
-
-            <div className="pt-4 border-t border-[#35434E] flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[#AAB5BE]">
-                Optional: import a local 3D model (.glb / .gltf)
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  sound.playClick();
-                  onOpenCustomModels();
-                }}
-                className="px-3.5 py-2 min-h-[38px] rounded-lg bg-[#202C36] hover:bg-[#2A3946] border border-[#35434E] text-[#F0F2F3] text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
-              >
-                <Box className="w-3.5 h-3.5 text-[#78A9C8]" />
-                <span>Load .glb Model</span>
-              </button>
             </div>
           </div>
         </div>

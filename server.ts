@@ -884,7 +884,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Outpost Survival server listening on http://localhost:${PORT} (mode=${IS_PROD ? 'production' : 'development'})`);
+    console.log(`Oops! I'm an Astronaut server listening on http://localhost:${PORT} (mode=${IS_PROD ? 'production' : 'development'})`);
   });
 }
 

@@ -140,7 +140,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             NASA &amp; CSA Outpost Simulation
           </div>
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[#F0F2F3] mb-3 [text-wrap:balance]">
-            Outpost Survival
+            Oops! I'm an Astronaut
           </h1>
           <p className="text-sm sm:text-base text-[#AAB5BE] leading-relaxed max-w-2xl">
             Walk the lunar or Martian surface, gather ice and regolith, construct life-support modules, and balance power and oxygen under authentic space conditions.
@@ -407,7 +407,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Quiet Footer */}
       <footer className="w-full border-t border-[#35434E]/60 py-4 px-4 sm:px-6 text-center text-xs text-[#8895A0]">
-        Outpost Survival · NASA &amp; CSA Open Science STEM Simulator
+        Oops! I'm an Astronaut · NASA &amp; CSA Open Science STEM Simulator
       </footer>
     </div>
   );

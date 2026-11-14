@@ -5,7 +5,6 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
-  Box,
   Save,
   Home,
   BookOpen
@@ -24,7 +23,6 @@ interface PauseModalProps {
   onSelectMission: (idx: number) => void;
   onRespawn: () => void;
   onExitHome?: () => void;
-  onOpenCustomModels?: () => void;
   onOpenTutorial?: () => void;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt?: string | null;
@@ -42,7 +40,6 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onSelectMission,
   onRespawn,
   onExitHome,
-  onOpenCustomModels,
   onOpenTutorial,
   saveStatus = 'idle',
   lastSavedAt = null,
@@ -173,20 +170,6 @@ export const PauseModal: React.FC<PauseModalProps> = ({
                 >
                   <BookOpen className="w-3.5 h-3.5 text-[#78A9C8]" />
                   <span>How to Play</span>
-                </button>
-              )}
-
-              {onOpenCustomModels && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    onOpenCustomModels();
-                  }}
-                  className="px-3.5 py-2 min-h-[38px] rounded-md bg-[#202C36] hover:bg-[#2A3946] border border-[#35434E] text-[#F0F2F3] text-xs font-medium flex items-center gap-1.5 transition-colors"
-                >
-                  <Box className="w-3.5 h-3.5 text-[#78A9C8]" />
-                  <span>Custom 3D Models</span>
                 </button>
               )}
 

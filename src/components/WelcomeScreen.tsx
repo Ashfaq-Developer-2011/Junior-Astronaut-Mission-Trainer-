@@ -23,7 +23,6 @@ interface WelcomeScreenProps {
   onDismissCorruptedNotice: () => void;
   onOpenScience: () => void;
   onOpenTutorial: () => void;
-  onOpenCustomModels: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
@@ -33,8 +32,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   saveCorruptedNotice,
   onDismissCorruptedNotice,
   onOpenScience,
-  onOpenTutorial,
-  onOpenCustomModels
+  onOpenTutorial
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -108,7 +106,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           )}
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-[#F0F2F3] mb-4 [text-wrap:balance]">
-            Outpost Survival
+            Oops! I'm an Astronaut
           </h1>
 
           <p className="text-base sm:text-lg text-[#AAB5BE] mb-8 leading-relaxed">
@@ -242,21 +240,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 </span>
                 <ArrowRight className="w-4 h-4 text-[#8895A0]" />
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettings(false);
-                  onOpenCustomModels();
-                }}
-                className="w-full px-4 py-3 rounded-lg bg-[#202C36] hover:bg-[#2A3946] border border-[#35434E] text-left text-sm text-[#F0F2F3] flex items-center justify-between transition-colors"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Box className="w-4 h-4 text-[#78A9C8]" />
-                  <span>Custom 3D Models (.glb / .gltf)</span>
-                </span>
-                <ArrowRight className="w-4 h-4 text-[#8895A0]" />
-              </button>
             </div>
           </div>
         </div>
@@ -267,13 +250,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Credits and About Outpost Survival"
+          aria-label="Credits and About Oops! I'm an Astronaut"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B1016]/80"
         >
           <div className="w-full max-w-md bg-[#19232D] border border-[#35434E] rounded-lg p-5 sm:p-6">
             <div className="flex items-center justify-between border-b border-[#35434E] pb-3.5 mb-4">
               <h2 className="text-base sm:text-lg font-semibold text-[#F0F2F3]">
-                About Outpost Survival
+                About Oops! I'm an Astronaut
               </h2>
               <button
                 type="button"
@@ -287,7 +270,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
             <div className="space-y-3 text-xs sm:text-sm text-[#AAB5BE] leading-relaxed">
               <p>
-                Outpost Survival is an interactive 3D space exploration and habitat engineering simulator designed to help students explore real aerospace survival trade-offs on the Moon and Mars.
+                Oops! I'm an Astronaut is an interactive 3D space exploration and habitat engineering simulator designed to help students explore real aerospace survival trade-offs on the Moon and Mars.
               </p>
               <p>
                 <strong className="text-[#F0F2F3] font-medium">Science &amp; 3D Data Sources:</strong> NASA Open Data (DONKI Space Weather, OSDR Space Biology, RadLab Radiation Dosimetry, Mars Trek, Lunar Reconnaissance Orbiter), NASA 3D Resources (Apollo LM-5, EMU Spacesuit, Habitat Demonstration Unit), and Canadian Space Agency (CSA) Controlled Environment Agriculture food systems.
