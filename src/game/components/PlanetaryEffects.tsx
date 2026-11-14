@@ -267,3 +267,180 @@ export const MarsDustParticles: React.FC<{ isStormActive: boolean; isPaused: boo
 
   return <points ref={pointsRef} geometry={geometry} material={material} />;
 };
+
+/**
+ * Crops the NASA Apollo bootprint photo tightly around the sole impression,
+ * converts warm sepia tones to cool Moon regolith grey with an elliptical alpha feather,
+ * and produces paired color + bump CanvasTextures so the bootprints melt naturally into the terrain.
+ */
+function buildLunarBootprintTextures(img: HTMLImageElement): {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+} {
+  const size = 256;
+  const colorCanvas = document.createElement('canvas');
+  colorCanvas.width = size;
+  colorCanvas.height = size;
+  const cCtx = colorCanvas.getContext('2d');
+
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bCtx = bumpCanvas.getContext('2d');
+
+  const sx = img.width * 0.37;
+  const sy = img.height * 0.31;
+  const sw = img.width * 0.39;
+  const sh = img.height * 0.55;
+
+  if (cCtx && bCtx) {
+    cCtx.clearRect(0, 0, size, size);
+    cCtx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+
+    const imgData = cCtx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    const bumpData = bCtx.createImageData(size, size);
+    const bOut = bumpData.data;
+
+    const cx = size * 0.5;
+    const cy = size * 0.5;
+    const rx = size * 0.44;
+    const ry = size * 0.46;
+
+    for (let y = 0; y < size; y++) {
+      const dy = (y - cy) / ry;
+      for (let x = 0; x < size; x++) {
+        const dx = (x - cx) / rx;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const idx = (y * size + x) * 4;
+
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+
+        // Perceived luminance with subtle contrast boost for boot treads
+        const lumRaw = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        const lum = THREE.MathUtils.clamp((lumRaw - 0.5) * 1.24 + 0.52, 0.04, 0.98);
+
+        // Cool lunar slate regolith palette matching procedural Moon surface
+        data[idx] = Math.round(lum * 184);
+        data[idx + 1] = Math.round(lum * 192);
+        data[idx + 2] = Math.round(lum * 204);
+
+        // Smooth radial alpha fade around the bootprint rim
+        let alpha = 1;
+        if (dist > 0.52) {
+          const t = THREE.MathUtils.clamp((dist - 0.52) / 0.46, 0, 1);
+          alpha = 1 - t * t * (3 - 2 * t);
+        }
+        data[idx + 3] = Math.round(alpha * 255);
+
+        const bumpVal = Math.round(lum * 255);
+        bOut[idx] = bumpVal;
+        bOut[idx + 1] = bumpVal;
+        bOut[idx + 2] = bumpVal;
+        bOut[idx + 3] = 255;
+      }
+    }
+
+    cCtx.putImageData(imgData, 0, 0);
+    bCtx.putImageData(bumpData, 0, 0);
+  }
+
+  const map = new THREE.CanvasTexture(colorCanvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 8;
+  map.needsUpdate = true;
+
+  const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+  bumpMap.anisotropy = 8;
+  bumpMap.needsUpdate = true;
+
+  return { map, bumpMap };
+}
+
+const LUNAR_LANDING_FOOTPRINTS: Array<{
+  x: number;
+  z: number;
+  rotY: number;
+  scale: number;
+  opacity: number;
+}> = [
+  { x: -2.25, z: -1.92, rotY: -Math.PI * 0.68, scale: 0.96, opacity: 0.85 },
+  { x: -1.42, z: -1.42, rotY: -Math.PI * 0.72, scale: 0.98, opacity: 0.89 },
+  { x: -0.78, z: -0.52, rotY: -Math.PI * 0.69, scale: 1.0, opacity: 0.92 },
+  { x: 0.08, z: 0.05, rotY: -Math.PI * 0.72, scale: 1.03, opacity: 0.95 },
+  { x: 0.62, z: 0.76, rotY: -Math.PI * 0.70, scale: 1.05, opacity: 0.96 }
+];
+
+/**
+ * Authentic lunar regolith bootprints placed right at the Moon landing site.
+ * Only mounted on the Moon surface.
+ */
+export const MoonLandingFootprints: React.FC<{
+  getTerrainHeight: (x: number, z: number) => number;
+}> = ({ getTerrainHeight }) => {
+  const [textures, setTextures] = React.useState<{
+    map: THREE.CanvasTexture;
+    bumpMap: THREE.CanvasTexture;
+  } | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (disposed) return;
+      setTextures(buildLunarBootprintTextures(img));
+    };
+    img.src = '/assets/aistudio/image_e8ec719b.png';
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (textures) {
+        textures.map.dispose();
+        textures.bumpMap.dispose();
+      }
+    };
+  }, [textures]);
+
+  if (!textures) return null;
+
+  return (
+    <group>
+      {LUNAR_LANDING_FOOTPRINTS.map((fp, idx) => {
+        const y = getTerrainHeight(fp.x, fp.z) + 0.022;
+        return (
+          <mesh
+            key={idx}
+            position={[fp.x, y, fp.z]}
+            rotation={[-Math.PI / 2, 0, fp.rotY]}
+            scale={[fp.scale, fp.scale, 1]}
+            receiveShadow
+          >
+            <planeGeometry args={[0.48, 0.62]} />
+            <meshStandardMaterial
+              map={textures.map}
+              bumpMap={textures.bumpMap}
+              bumpScale={0.28}
+              roughness={0.96}
+              metalness={0.02}
+              transparent
+              opacity={fp.opacity}
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+};
+

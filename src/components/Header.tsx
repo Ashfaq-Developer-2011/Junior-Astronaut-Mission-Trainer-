@@ -43,19 +43,21 @@ export const Header: React.FC<HeaderProps> = ({
               onNavigate('home');
             }}
             className="flex items-center gap-2.5 group text-left focus:outline-none cursor-pointer"
-            title="Mission Control: Beyond Earth"
+            title="Oops! I'm an Astronaut"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#193C32] border border-[#193C32] flex items-center justify-center p-0.5 shadow-md shadow-[#193C32]/30 group-hover:scale-105 transition-transform">
-              <Rocket className="w-5 h-5 text-[#D87943]" />
-            </div>
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover border border-[#35434E] shadow-md group-hover:scale-105 transition-transform"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-bold tracking-wider text-[10px] sm:text-xs text-[#D87943] uppercase">
-                  NASA Space Apps 2026
+                  Aerospace Mission Simulator
                 </span>
               </div>
               <h1 className="text-xs sm:text-sm md:text-base font-bold text-[#F1EBDD] tracking-tight">
-                Mission Control: Beyond Earth
+                Oops! I'm an Astronaut
               </h1>
             </div>
           </button>

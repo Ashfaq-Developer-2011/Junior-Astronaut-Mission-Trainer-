@@ -8,7 +8,21 @@ import type { Request, Response } from 'express';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.PORT || 3000);
+function resolvePort(): number {
+  const portFlagIndex = process.argv.findIndex((arg) => arg === '--port' || arg === '-p');
+  if (portFlagIndex !== -1 && process.argv[portFlagIndex + 1]) {
+    const parsed = Number(process.argv[portFlagIndex + 1]);
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  const portEq = process.argv.find((arg) => arg.startsWith('--port='));
+  if (portEq) {
+    const parsed = Number(portEq.split('=')[1]);
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  return Number(process.env.PORT || 3000);
+}
+
+const PORT = resolvePort();
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 function getNasaApiKey(): string {
@@ -869,7 +883,10 @@ async function startServer() {
   if (!IS_PROD) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);

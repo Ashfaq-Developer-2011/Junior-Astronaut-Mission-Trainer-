@@ -67,12 +67,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Top Header info */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#193C32] border border-[#193C32]/80 flex items-center justify-center text-[#F1EBDD]">
-              <Rocket className="w-4 h-4 text-[#F1EBDD]" />
-            </div>
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-8 h-8 rounded-lg object-cover border border-[#35434E]"
+            />
             <div>
               <div className="text-[10px] font-mono-tech tracking-widest text-[#D87943] font-bold uppercase">
-                NASA SPACE APPS 2026
+                OOPS! I&apos;M AN ASTRONAUT
               </div>
               <div className="text-xs font-semibold text-[#F1EBDD]">
                 AEROSPACE MISSION SIMULATOR
@@ -98,9 +100,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {/* Main Title */}
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-display font-extrabold tracking-tight text-[#F1EBDD] mb-4 leading-none">
-            MISSION CONTROL:
+            OOPS! I&apos;M AN
             <span className="block text-[#D87943] mt-2">
-              BEYOND EARTH
+              ASTRONAUT
             </span>
           </h1>
 

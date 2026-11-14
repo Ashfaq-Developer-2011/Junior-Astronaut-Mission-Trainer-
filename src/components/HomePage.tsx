@@ -76,8 +76,13 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Top Navigation Bar */}
       <header className="w-full border-b border-[#35434E] bg-[#111820]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
-          <div className="text-base font-semibold tracking-tight text-[#F0F2F3] whitespace-nowrap shrink-0">
-            Junior Astronaut
+          <div className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-[#F0F2F3] whitespace-nowrap shrink-0">
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-8 h-8 rounded-lg object-cover border border-[#35434E]"
+            />
+            <span>Oops! I'm an Astronaut</span>
           </div>
 
           <nav className="flex items-center gap-4 sm:gap-6 text-sm text-[#AAB5BE]">

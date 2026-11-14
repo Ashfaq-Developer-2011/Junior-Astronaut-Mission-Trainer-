@@ -67,8 +67,13 @@ export const AstronautSetupScreen: React.FC<AstronautSetupScreenProps> = ({
             <span>Back</span>
           </button>
 
-          <div className="text-xs font-mono-tech text-[#AAB5BE]">
-            Step 3 of 3 · Astronaut Setup
+          <div className="flex items-center gap-2 text-xs font-mono-tech text-[#AAB5BE]">
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-6 h-6 rounded-md object-cover border border-[#35434E]"
+            />
+            <span>Step 3 of 3 · Astronaut Setup</span>
           </div>
         </div>
       </header>

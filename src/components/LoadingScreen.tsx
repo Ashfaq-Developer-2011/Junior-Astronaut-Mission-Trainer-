@@ -83,13 +83,20 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     <div className="h-full w-full bg-[#111820] text-[#F0F2F3] flex flex-col justify-between p-4 sm:p-8 select-none overflow-y-auto">
       {/* Top Header */}
       <header className="max-w-4xl w-full mx-auto flex items-center justify-between border-b border-[#35434E] pb-4 gap-4">
-        <div>
-          <div className="text-xs font-mono-tech text-[#AAB5BE] mb-0.5">
-            Flight Trajectory &amp; Descent Telemetry
+        <div className="flex items-center gap-3 min-w-0">
+          <img
+            src="/game-icon.png"
+            alt="Oops! I'm an Astronaut"
+            className="w-9 h-9 rounded-lg object-cover border border-[#35434E] shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="text-xs font-mono-tech text-[#AAB5BE] mb-0.5 truncate">
+              Flight Trajectory &amp; Descent Telemetry
+            </div>
+            <h1 className="text-base sm:text-lg font-semibold text-[#F0F2F3] truncate">
+              {isMoon ? 'Artemis Base Camp Descent' : 'Jezero Crater Atmospheric Entry'}
+            </h1>
           </div>
-          <h1 className="text-base sm:text-lg font-semibold text-[#F0F2F3]">
-            {isMoon ? 'Artemis Base Camp Descent' : 'Jezero Crater Atmospheric Entry'}
-          </h1>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-[#AAB5BE] font-mono-tech shrink-0">

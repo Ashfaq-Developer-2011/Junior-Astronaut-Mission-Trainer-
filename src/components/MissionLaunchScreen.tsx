@@ -75,14 +75,22 @@ export const MissionLaunchScreen: React.FC<MissionLaunchScreenProps> = ({
 
       {/* Centered Launch Sequence Card */}
       <div className="relative z-10 w-full max-w-lg bg-[#19232D]/95 border border-[#35434E] rounded-lg p-5 sm:p-8 my-auto">
-        <div className="flex items-center justify-between gap-3 text-xs font-mono-tech text-[#78A9C8] mb-2">
-          <span>Mission M-01 · First Landing</span>
-          <span>{isMoon ? 'Moon Base' : 'Mars Outpost'}</span>
+        <div className="flex items-center gap-3.5 mb-3">
+          <img
+            src="/game-icon.png"
+            alt="Oops! I'm an Astronaut"
+            className="w-10 h-10 rounded-lg object-cover border border-[#35434E] shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-3 text-xs font-mono-tech text-[#78A9C8] mb-0.5">
+              <span>Mission M-01 · First Landing</span>
+              <span>{isMoon ? 'Moon Base' : 'Mars Outpost'}</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-[#F0F2F3] truncate">
+              Launching {isMoon ? 'Moon Base' : 'Mars Outpost'}
+            </h1>
+          </div>
         </div>
-
-        <h1 className="text-2xl font-semibold text-[#F0F2F3] mb-2">
-          Launching {isMoon ? 'Moon Base' : 'Mars Outpost'}
-        </h1>
 
         <div className="flex items-center gap-2 text-sm text-[#AAB5BE] mb-6">
           <span>{avatar}</span>

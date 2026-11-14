@@ -67,14 +67,21 @@ export const PauseModal: React.FC<PauseModalProps> = ({
       <div className="relative w-full max-w-2xl bg-[#19232D] border border-[#35434E] rounded-lg p-5 sm:p-6 flex flex-col max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-[#35434E] pb-4 mb-5 gap-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-[#F0F2F3]">
-              Mission Paused
-            </h2>
-            <div className="text-xs font-mono-tech text-[#AAB5BE] mt-0.5">
-              {planet === 'moon' ? 'Moon Base' : 'Mars Outpost'}
-              {typeof batteryPct === 'number' ? ` · Battery ${batteryPct}%` : ''}
-              {typeof sciencePoints === 'number' ? ` · Science ${sciencePoints}` : ''}
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-9 h-9 rounded-lg object-cover border border-[#35434E] shrink-0"
+            />
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-[#F0F2F3]">
+                Mission Paused
+              </h2>
+              <div className="text-xs font-mono-tech text-[#AAB5BE] mt-0.5 truncate">
+                {planet === 'moon' ? 'Moon Base' : 'Mars Outpost'}
+                {typeof batteryPct === 'number' ? ` · Battery ${batteryPct}%` : ''}
+                {typeof sciencePoints === 'number' ? ` · Science ${sciencePoints}` : ''}
+              </div>
             </div>
           </div>
 

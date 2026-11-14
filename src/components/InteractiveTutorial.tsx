@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
-import step1Img from '../assets/images/welcome_outpost_bg_1794585718560.jpg';
-import step2Img from '../assets/screenshots/step7_ready.jpg';
-import step3Img from '../assets/images/moon_base_preview_1794585718613.jpg';
-import step4Img from '../assets/screenshots/step7_ready.jpg';
-import step5Img from '../assets/images/mars_outpost_preview_1794585719761.jpg';
+import step1Img from '../assets/screenshots/step1_welcome.jpg';
+import step2Img from '../assets/screenshots/step2_wasd.jpg';
+import step3Img from '../assets/screenshots/step3_look.jpg';
+import step4Img from '../assets/screenshots/step4_jump.jpg';
+import step5Img from '../assets/screenshots/step5_interact.jpg';
 import step6Img from '../assets/screenshots/step6_build.jpg';
 import step7Img from '../assets/screenshots/step7_ready.jpg';
 import { sound } from '../services/audio';
@@ -91,7 +91,7 @@ const STEPS: TutorialStepDef[] = [
     body: 'Collect resources and interact with objects.',
     subtitle: 'Press E near surface deposits or click glowing nodes directly.',
     image: step5Img,
-    imageAlt: 'Astronaut approaching blue mineral and water-ice deposits on the surface',
+    imageAlt: 'Astronaut approaching a glowing water-ice deposit on the lunar surface with the interaction prompt',
     visualType: 'interact'
   },
   {
@@ -327,7 +327,12 @@ export const InteractiveTutorial: React.FC<InteractiveTutorialProps> = ({
     <div className="h-[100dvh] w-full bg-[#111820] text-[#F0F2F3] flex flex-col justify-between select-none overflow-hidden hud-safe-area">
       {/* Compact Header */}
       <header className="w-full max-w-5xl mx-auto px-3 sm:px-6 h-12 sm:h-14 flex items-center justify-between gap-3 shrink-0 border-b border-[#35434E]/80">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img
+            src="/game-icon.png"
+            alt="Oops! I'm an Astronaut"
+            className="w-6 h-6 rounded-md object-cover border border-[#35434E] shrink-0"
+          />
           {mode === 'onboarding' && onBack && isFirst ? (
             <button
               type="button"
@@ -335,7 +340,7 @@ export const InteractiveTutorial: React.FC<InteractiveTutorialProps> = ({
                 sound.playClick();
                 onBack();
               }}
-              className="px-2.5 py-1.5 min-h-[36px] rounded-lg hover:bg-[#19232D] text-[#AAB5BE] hover:text-[#F0F2F3] text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
+              className="px-2 py-1.5 min-h-[36px] rounded-lg hover:bg-[#19232D] text-[#AAB5BE] hover:text-[#F0F2F3] text-xs sm:text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Welcome</span>

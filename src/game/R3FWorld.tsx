@@ -16,6 +16,7 @@ import {
   HorizonCraterRim,
   InstancedPlanetaryRocks,
   MarsDustParticles,
+  MoonLandingFootprints,
   SceneEnvironment
 } from './components/PlanetaryEffects';
 import { sound } from '../services/audio';
@@ -695,6 +696,9 @@ export const R3FWorld: React.FC<R3FWorldProps> = ({
 
       {/* Touchdown Lander Craft */}
       <LanderCraft y={getTerrainHeight(-6, -6)} />
+
+      {/* Authentic Lunar Bootprints at the Moon Landing Spot */}
+      {planet === 'moon' && <MoonLandingFootprints getTerrainHeight={getTerrainHeight} />}
 
       {/* Procedural Terrain with Pointer Click Placement Detection */}
       <Terrain

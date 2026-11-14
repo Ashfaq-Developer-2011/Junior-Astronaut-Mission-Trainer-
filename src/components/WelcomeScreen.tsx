@@ -65,9 +65,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
       {/* Minimal Top Bar */}
       <header className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 pt-5 flex items-center justify-between">
-        <span className="text-sm font-medium text-[#AAB5BE] tracking-tight">
-          Junior Astronaut
-        </span>
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/game-icon.png"
+            alt="Oops! I'm an Astronaut icon"
+            className="w-8 h-8 rounded-lg object-cover border border-[#35434E]"
+          />
+          <span className="text-sm font-medium text-[#F0F2F3] tracking-tight">
+            Oops! I'm an Astronaut
+          </span>
+        </div>
 
         <button
           type="button"
@@ -104,6 +111,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               </button>
             </div>
           )}
+
+          <div className="mb-4">
+            <img
+              src="/game-icon.png"
+              alt="Oops! I'm an Astronaut"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-[#35434E] shadow-lg"
+            />
+          </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-[#F0F2F3] mb-4 [text-wrap:balance]">
             Oops! I'm an Astronaut
