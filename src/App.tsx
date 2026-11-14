@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MissionBriefingScreen } from './components/MissionBriefingScreen';
 import { DestinationSelectionScreen } from './components/DestinationSelectionScreen';
@@ -200,6 +201,8 @@ export default function App() {
         isOpen={showCustomModel}
         onClose={() => setShowCustomModel(false)}
       />
+      
+      <Analytics />
     </div>
   );
 }
