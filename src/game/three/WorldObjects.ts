@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BuildingType } from '../../types/survival';
+import { buildStormShelterGroup } from './StormShelterModel';
 
 // Shared reusable materials to avoid duplicate allocations
 const materialsCache = new Map<string, THREE.Material>();
@@ -309,20 +310,9 @@ export function createBuildingMesh(type: BuildingType, isHologram = false, isVal
     }
 
     case 'rad_shelter': {
-      // 6. Radiation Storm Shelter (Subterranean bunker with heavy regolith shield)
-      const mound = new THREE.Mesh(new THREE.SphereGeometry(3.0, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45), darkMetalMat);
-      mound.position.y = 0.4;
-      mound.castShadow = true;
-      group.add(mound);
-
-      // Heavy Blast Hatch
-      const blastHatchMat = getMat('mat_blast_hatch', () =>
-        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4, metalness: 0.6 })
-      );
-      const hatch = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.3, 12), blastHatchMat);
-      hatch.position.set(0, 1.6, 1.8);
-      hatch.rotation.x = Math.PI / 4;
-      group.add(hatch);
+      // 6. Radiation Storm Shelter (Compact reinforced emergency bunker)
+      const shelter = buildStormShelterGroup({ getMat, isHologram });
+      group.add(shelter);
       break;
     }
 

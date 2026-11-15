@@ -462,8 +462,9 @@ export class GameEngine {
         const dx = this.playerX - bld.x;
         const dz = this.playerZ - bld.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
-        // Inside radius of enlarged 20m habitat dome
-        if (dist <= 10.5) {
+        // Habitat Dome (20m wide) uses 10.5m radius; compact Storm Shelter (~8.4m wide + entrance ramp) uses 7.2m
+        const shelterRadius = bld.type === 'habitat' ? 10.5 : 7.2;
+        if (dist <= shelterRadius) {
           return true;
         }
       }

@@ -6,6 +6,7 @@ import { CharacterMesh } from './components/CharacterMesh';
 import { CameraOrbitDelta, ThirdPersonCamera } from './components/ThirdPersonCamera';
 import { ApolloLunarModule } from './components/ApolloLunarModule';
 import { NasaHabitatModule } from './components/NasaHabitatModule';
+import { StormShelterModule } from './components/StormShelterModule';
 import { usePlayerInput } from './PlayerController';
 import { createBuildingMesh, createResourceNodeMesh } from './three/WorldObjects';
 import { createTerrainGeometry } from './three/PlanetaryTerrain';
@@ -136,7 +137,7 @@ const HologramPreview: React.FC<{
   position: [number, number, number];
   isValid: boolean;
 }> = ({ type, position, isValid }) => {
-  const isLargeHabitat = type === 'habitat' || type === 'rad_shelter';
+  const isLargeHabitat = type === 'habitat';
   const previewMesh = useMemo(() => createBuildingMesh(type, true, isValid), [type, isValid]);
   return (
     <primitive
@@ -234,9 +235,18 @@ const BuildingItem: React.FC<{
   y: number;
   onClick?: () => void;
 }> = ({ building, y, onClick }) => {
-  if (building.type === 'habitat' || building.type === 'rad_shelter') {
+  if (building.type === 'habitat') {
     return (
       <NasaHabitatModule
+        position={[building.x, y, building.z]}
+        rotation={[0, building.rotation, 0]}
+      />
+    );
+  }
+
+  if (building.type === 'rad_shelter') {
+    return (
+      <StormShelterModule
         position={[building.x, y, building.z]}
         rotation={[0, building.rotation, 0]}
       />
@@ -363,6 +373,7 @@ const PlayerAvatarScene: React.FC<{
   spawnToken: number;
   isPaused: boolean;
   planet: PlanetType;
+  placedBuildings: PlacedBuilding[];
   getTerrainHeight: (x: number, z: number) => number;
   virtualInputRef?: React.MutableRefObject<VirtualInputState>;
   cameraOrbitDeltaRef?: React.MutableRefObject<CameraOrbitDelta>;
@@ -382,6 +393,7 @@ const PlayerAvatarScene: React.FC<{
   spawnToken,
   isPaused,
   planet,
+  placedBuildings,
   getTerrainHeight,
   virtualInputRef,
   cameraOrbitDeltaRef,
@@ -496,6 +508,24 @@ const PlayerAvatarScene: React.FC<{
 
       posRef.current.x = THREE.MathUtils.clamp(posRef.current.x + dirX * speed * dt, -145, 145);
       posRef.current.z = THREE.MathUtils.clamp(posRef.current.z + dirZ * speed * dt, -145, 145);
+
+      // Keep astronaut from clipping through compact armored Storm Shelter walls
+      for (const bld of placedBuildings) {
+        if (bld.type !== 'rad_shelter') continue;
+        const bldGroundY = getTerrainHeight(bld.x, bld.z);
+        if (posRef.current.y > bldGroundY + 3.2) continue;
+        const dx = posRef.current.x - bld.x;
+        const dz = posRef.current.z - bld.z;
+        const minDist = 3.75;
+        const distSq = dx * dx + dz * dz;
+        if (distSq > 0.0001 && distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq);
+          posRef.current.x = bld.x + (dx / dist) * minDist;
+          posRef.current.z = bld.z + (dz / dist) * minDist;
+        } else if (distSq <= 0.0001) {
+          posRef.current.z = bld.z + minDist;
+        }
+      }
 
       const targetAngle = Math.atan2(dirX, dirZ);
       let angleDiff = targetAngle - rotRef.current;
@@ -744,6 +774,7 @@ export const R3FWorld: React.FC<R3FWorldProps> = ({
         spawnToken={spawnToken}
         isPaused={isPaused}
         planet={planet}
+        placedBuildings={placedBuildings}
         getTerrainHeight={getTerrainHeight}
         virtualInputRef={virtualInputRef}
         cameraOrbitDeltaRef={cameraOrbitDeltaRef}
