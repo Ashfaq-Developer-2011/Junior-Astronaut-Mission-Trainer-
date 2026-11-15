@@ -11,6 +11,8 @@ import { InteractiveTutorial } from './components/InteractiveTutorial';
 import {
   fetchPhase2ScienceBundle,
   Phase2ScienceBundle,
+  RetryableFeed,
+  retrySingleScienceFeed,
   VERIFIED_NASA_ARCHIVE
 } from './services/nasaData';
 import {
@@ -55,15 +57,16 @@ export default function App() {
 
   const [scienceBundle, setScienceBundle] = useState<Phase2ScienceBundle | null>(null);
   const [isRefreshingScience, setIsRefreshingScience] = useState(false);
+  const [retryingFeed, setRetryingFeed] = useState<RetryableFeed | null>(null);
   const [scienceError, setScienceError] = useState<string | null>(null);
 
   const launchingRef = useRef(false);
 
-  const loadScienceData = useCallback(async (liveRadLab = false) => {
+  const loadScienceData = useCallback(async (liveRadLab = true, forceRefresh = false) => {
     setIsRefreshingScience(true);
     setScienceError(null);
     try {
-      const bundle = await fetchPhase2ScienceBundle({ liveRadLab });
+      const bundle = await fetchPhase2ScienceBundle({ liveRadLab, forceRefresh });
       setScienceBundle(bundle);
     } catch {
       setScienceError('Unable to reach local NASA/CSA proxy service.');
@@ -72,6 +75,26 @@ export default function App() {
     }
   }, []);
 
+  const handleRetryFeed = useCallback(
+    async (feed: RetryableFeed) => {
+      if (!scienceBundle) {
+        await loadScienceData(true, true);
+        return;
+      }
+      setRetryingFeed(feed);
+      setScienceError(null);
+      try {
+        const updated = await retrySingleScienceFeed(scienceBundle, feed);
+        setScienceBundle(updated);
+      } catch {
+        setScienceError(`Unable to retry ${feed} feed right now.`);
+      } finally {
+        setRetryingFeed(null);
+      }
+    },
+    [scienceBundle, loadScienceData]
+  );
+
   const refreshSavedState = useCallback(async () => {
     const res = await loadSavedGame();
     setSavedGame(res.save);
@@ -79,7 +102,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void loadScienceData(false);
+    void loadScienceData(true, false);
     void refreshSavedState();
   }, [loadScienceData, refreshSavedState]);
 
@@ -187,8 +210,12 @@ export default function App() {
         observations={scienceBundle?.observations || VERIFIED_NASA_ARCHIVE}
         isLive={Boolean(scienceBundle?.isLive)}
         onRefresh={() => {
-          void loadScienceData(true);
+          void loadScienceData(true, true);
         }}
+        onRetryFeed={(feed) => {
+          void handleRetryFeed(feed);
+        }}
+        retryingFeed={retryingFeed}
         isRefreshing={isRefreshingScience}
         bundle={scienceBundle}
         errorMessage={scienceError}

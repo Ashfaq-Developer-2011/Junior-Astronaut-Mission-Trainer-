@@ -3,7 +3,15 @@ import { RADLAB_VERIFIED_BASELINES, RadLabBaseline } from '../data/radlabBaselin
 import { CSA_FOOD_PRODUCTION_RESOURCES, CsaFoodResource } from '../data/csaFoodData';
 import { MARS_TREK_SITES, MarsTrekSite } from '../data/marsTrekSites';
 
-export type ScienceFeedStatus = 'live' | 'cached' | 'curated' | 'error';
+export type ScienceFeedStatus = 'live' | 'cached' | 'curated' | 'archive' | 'error';
+export type RetryableFeed = 'donki' | 'osdr' | 'radlab' | 'marsTrek';
+
+export interface FeedTelemetry {
+  status: ScienceFeedStatus;
+  lastUpdatedAt: string | null;
+  source: string;
+  error?: string;
+}
 
 export interface Phase2ScienceBundle {
   observations: NasaObservation[];
@@ -15,6 +23,13 @@ export interface Phase2ScienceBundle {
   radlabStatus: ScienceFeedStatus;
   marsTrekStatus: ScienceFeedStatus;
   csaStatus: 'curated';
+  feeds: {
+    donki: FeedTelemetry;
+    osdr: FeedTelemetry;
+    radlab: FeedTelemetry;
+    marsTrek: FeedTelemetry;
+    csa: FeedTelemetry;
+  };
   isLive: boolean;
   lastSyncedAt: string;
   warnings: string[];
@@ -30,7 +45,7 @@ export const VERIFIED_NASA_ARCHIVE: NasaObservation[] = [
     source: 'NASA DONKI / NOAA GOES-16 Space Weather Archive',
     sourceUrl: 'https://ccmc.gsfc.nasa.gov/DONKI/view/FLR/30613/1',
     status: 'archived_verified',
-    dataOrigin: 'curated',
+    dataOrigin: 'archive',
     measurementContext: 'Heliophysics X-Ray Flux Observation (Not Astronaut Dose)',
     caveat: 'DONKI tracks solar flare/CME events; it does not directly measure an astronaut’s absorbed radiation dose.',
     summary:
@@ -52,7 +67,7 @@ export const VERIFIED_NASA_ARCHIVE: NasaObservation[] = [
     source: 'NASA Open Science Data Repository (OSDR)',
     sourceUrl: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-120',
     status: 'archived_verified',
-    dataOrigin: 'curated',
+    dataOrigin: 'archive',
     measurementContext: 'ISS Spaceflight Plant Molecular Biology (GeneLab / OSDR)',
     summary:
       'Genetic dissection of the Arabidopsis spaceflight transcriptome on the International Space Station, distinguishing physiological adaptation pathways from non-essential gene responses.',
@@ -73,7 +88,7 @@ export const VERIFIED_NASA_ARCHIVE: NasaObservation[] = [
     source: 'NASA Open Science Data Repository (OSDR)',
     sourceUrl: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-520',
     status: 'archived_verified',
-    dataOrigin: 'curated',
+    dataOrigin: 'archive',
     measurementContext: 'Controlled Ionizing Radiation Plant Study (OSDR)',
     summary:
       'Evaluates changes in DNA methylation across multiple generations of Arabidopsis thaliana plants exposed to ionizing radiation.',
@@ -94,7 +109,7 @@ export const VERIFIED_NASA_ARCHIVE: NasaObservation[] = [
     source: 'NASA Open Science Data Repository (OSDR)',
     sourceUrl: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-46',
     status: 'archived_verified',
-    dataOrigin: 'curated',
+    dataOrigin: 'archive',
     measurementContext: 'Ground-Based Radiation & HZE Ion Exposure Study (OSDR)',
     summary:
       'Investigates transcriptional DNA-repair and cell-cycle responses of Arabidopsis seedlings exposed to gamma and high-Z/high-energy (HZE) radiation.',
@@ -130,7 +145,8 @@ export const VERIFIED_NASA_ARCHIVE: NasaObservation[] = [
   }
 ];
 
-function radLabToObservation(item: RadLabBaseline): NasaObservation {
+function radLabToObservation(item: RadLabBaseline, overrideOrigin?: NasaObservation['dataOrigin']): NasaObservation {
+  const origin = overrideOrigin ?? (item.dataOrigin === 'live' ? 'live' : 'cached');
   return {
     id: item.id,
     title: `${item.celestialBody}: ${item.spacecraft} (${item.instrument}) Radiation Baseline`,
@@ -138,8 +154,8 @@ function radLabToObservation(item: RadLabBaseline): NasaObservation {
     timestamp: item.sampleWindowUtc,
     source: item.sourceName,
     sourceUrl: item.sourceUrl,
-    status: item.dataOrigin === 'live' ? 'live' : 'archived_verified',
-    dataOrigin: item.dataOrigin,
+    status: origin === 'live' ? 'live' : 'archived_verified',
+    dataOrigin: origin,
     unit: item.unit,
     measurementContext: item.contextLabel,
     caveat: item.scientificCaveat,
@@ -154,16 +170,21 @@ function radLabToObservation(item: RadLabBaseline): NasaObservation {
   };
 }
 
-function marsTrekToObservation(site: MarsTrekSite): NasaObservation {
+function marsTrekToObservation(
+  site: MarsTrekSite,
+  overrideOrigin?: NasaObservation['dataOrigin'],
+  fetchedAt?: string
+): NasaObservation {
+  const origin = overrideOrigin ?? (site.dataOrigin === 'live' ? 'live' : 'archive');
   return {
     id: site.id,
     title: site.name,
     type: 'mars_trek',
-    timestamp: new Date().toISOString(),
+    timestamp: fetchedAt || '2026-01-01T00:00:00Z',
     source: site.sourceName,
     sourceUrl: site.sourceUrl,
-    status: site.dataOrigin === 'live' ? 'live' : 'archived_verified',
-    dataOrigin: site.dataOrigin,
+    status: origin === 'live' ? 'live' : 'archived_verified',
+    dataOrigin: origin,
     measurementContext: 'Mars Orbital Mosaic (Mars Only — Never Lunar Terrain)',
     caveat: site.scientificCaveat,
     previewImageUrl: `/api/nasa/mars/tile?layer=${site.sampleTile.layerKey}&z=${site.sampleTile.z}&row=${site.sampleTile.row}&col=${site.sampleTile.col}`,
@@ -201,33 +222,67 @@ function csaToObservation(item: CsaFoodResource): NasaObservation {
   };
 }
 
-async function fetchJsonLocal<T>(path: string, timeoutMs = 9000): Promise<T> {
+interface HttpPayloadError extends Error {
+  status?: number;
+  body?: unknown;
+}
+
+async function fetchJsonLocal<T>(path: string, timeoutMs = 16000): Promise<T> {
   const res = await fetch(path, {
     headers: { Accept: 'application/json' },
     signal: AbortSignal.timeout(timeoutMs)
   });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+
+  const text = await res.text();
+  let parsed: unknown = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = null;
   }
-  return (await res.json()) as T;
+
+  if (!res.ok) {
+    const serverMsg =
+      parsed && typeof parsed === 'object' && typeof (parsed as Record<string, unknown>).error === 'string'
+        ? String((parsed as Record<string, unknown>).error)
+        : `HTTP ${res.status}`;
+    const err = new Error(serverMsg) as HttpPayloadError;
+    err.status = res.status;
+    err.body = parsed;
+    throw err;
+  }
+
+  if (parsed === null) {
+    throw new Error('Invalid JSON response from proxy');
+  }
+  return parsed as T;
 }
 
 interface DonkiProxyResponse {
-  status?: 'live' | 'curated_fallback';
+  source?: string;
+  status?: 'live' | 'cached' | 'error';
   fromCache?: boolean;
+  stale?: boolean;
+  emptyWindow?: boolean;
+  fetchedAt?: string;
+  window?: { startDate: string; endDate: string; days: number };
   warnings?: string[];
-  events?: Array<{
-    id: string;
-    eventType: 'cme' | 'solar_flare' | 'geomagnetic' | 'sep';
-    title: string;
-    timestamp: string;
-    source: string;
-    sourceUrl: string;
-    summary: string;
-    metrics: Record<string, string | number>;
-    gameplayRelevance: string;
-    status: 'live' | 'cached' | 'curated_fallback';
-  }>;
+  error?: string;
+  archiveFallback?: DonkiProxyEvent[];
+  events?: DonkiProxyEvent[];
+}
+
+interface DonkiProxyEvent {
+  id: string;
+  eventType: 'cme' | 'solar_flare' | 'geomagnetic' | 'sep';
+  title: string;
+  timestamp: string;
+  source: string;
+  sourceUrl: string;
+  summary: string;
+  metrics: Record<string, string | number>;
+  gameplayRelevance: string;
+  status: 'live' | 'cached' | 'archive';
 }
 
 interface OsdrProxyResponse {
@@ -239,13 +294,19 @@ interface OsdrProxyResponse {
   sourceName: string;
   sourceUrl: string;
   retrievedAt: string;
+  fromCache?: boolean;
+  warning?: string;
   status: 'live' | 'cached';
 }
 
 interface RadLabProxyResponse {
-  status?: 'live' | 'cached';
+  source?: string;
+  status?: 'live' | 'cached' | 'error';
   fromCache?: boolean;
+  stale?: boolean;
+  fetchedAt?: string;
   warnings?: string[];
+  error?: string;
   baselines?: Array<{
     id: string;
     sourceName: string;
@@ -263,174 +324,532 @@ interface RadLabProxyResponse {
     meanDoseRate: number;
     maxDoseRate: number;
     scientificCaveat: string;
-    dataOrigin?: 'live' | 'cached';
+    dataOrigin?: 'live' | 'cached' | 'archive';
   }>;
 }
 
 interface MarsTrekProxyResponse {
+  source?: string;
+  status?: 'live' | 'cached' | 'error';
   wmtsVerified?: boolean;
+  verifiedLayers?: Record<string, boolean>;
   fromCache?: boolean;
+  stale?: boolean;
+  fetchedAt?: string;
+  warnings?: string[];
+  error?: string;
   sites?: Array<{
     id: string;
     wmtsCapabilitiesUrl: string;
     previewTileUrl: string;
+    wmtsVerified?: boolean;
   }>;
 }
 
-export async function fetchPhase2ScienceBundle(options?: { liveRadLab?: boolean }): Promise<Phase2ScienceBundle> {
+function resolveDonkiSection(
+  donkiRes: PromiseSettledResult<DonkiProxyResponse>
+): { status: ScienceFeedStatus; observations: NasaObservation[]; telemetry: FeedTelemetry; warnings: string[] } {
   const warnings: string[] = [];
 
-  const [donkiRes, osdr120Res, osdr520Res, osdr46Res, radlabRes, marsRes] = await Promise.allSettled([
-    fetchJsonLocal<DonkiProxyResponse>('/api/nasa/donki?type=all&days=30'),
-    fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/120'),
-    fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/520'),
-    fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/46'),
-    fetchJsonLocal<RadLabProxyResponse>(`/api/nasa/radlab/baselines?live=${options?.liveRadLab ? 'true' : 'false'}`),
-    fetchJsonLocal<MarsTrekProxyResponse>('/api/nasa/mars/terrain?site=all')
-  ]);
-
-  // 1. DONKI Space Weather
-  let donkiStatus: ScienceFeedStatus = 'curated';
-  let donkiObservations: NasaObservation[] = [VERIFIED_NASA_ARCHIVE[0]];
-  if (donkiRes.status === 'fulfilled' && Array.isArray(donkiRes.value.events) && donkiRes.value.events.length > 0) {
-    donkiStatus = donkiRes.value.status === 'live' ? (donkiRes.value.fromCache ? 'cached' : 'live') : 'curated';
-    if (Array.isArray(donkiRes.value.warnings) && donkiRes.value.warnings.length > 0) {
-      warnings.push(...donkiRes.value.warnings);
+  if (donkiRes.status === 'fulfilled') {
+    const payload = donkiRes.value;
+    if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+      warnings.push(...payload.warnings);
     }
-    donkiObservations = donkiRes.value.events.slice(0, 6).map((ev) => ({
+
+    const feedStatus: ScienceFeedStatus =
+      payload.status === 'cached' || payload.fromCache ? 'cached' : 'live';
+
+    if (Array.isArray(payload.events) && payload.events.length > 0) {
+      const obs: NasaObservation[] = payload.events.slice(0, 6).map((ev) => ({
+        id: ev.id,
+        title: ev.title,
+        type: ev.eventType,
+        timestamp: ev.timestamp,
+        source: ev.source,
+        sourceUrl: ev.sourceUrl,
+        status: feedStatus === 'live' ? 'live' : 'archived_verified',
+        dataOrigin: feedStatus === 'live' ? 'live' : 'cached',
+        measurementContext: 'Heliophysics Space-Weather Observation (Not Astronaut Dose)',
+        caveat: 'DONKI tracks solar flares, CMEs, SEPs, and geomagnetic storms; it does not report personal radiation doses.',
+        summary: ev.summary,
+        metrics: ev.metrics,
+        gameplayRelevance: ev.gameplayRelevance
+      }));
+      return {
+        status: feedStatus,
+        observations: obs,
+        telemetry: {
+          status: feedStatus,
+          lastUpdatedAt: payload.fetchedAt || new Date().toISOString(),
+          source: payload.source || 'NASA CCMC / DONKI Live Service',
+          error: payload.warnings && payload.warnings.length > 0 ? payload.warnings[0] : undefined
+        },
+        warnings
+      };
+    }
+
+    // Valid empty 30-day quiet solar window is genuinely LIVE (not an error!)
+    const windowStr = payload.window ? `${payload.window.startDate} to ${payload.window.endDate}` : 'Last 30 days';
+    const quietObs: NasaObservation = {
+      id: 'DONKI-QUIET-WINDOW',
+      title: 'Solar Activity Quiet Window (0 Eruptive Events Logged)',
+      type: 'solar_flare',
+      timestamp: payload.fetchedAt || new Date().toISOString(),
+      source: payload.source || 'NASA CCMC / DONKI Live Service',
+      sourceUrl: 'https://ccmc.gsfc.nasa.gov/DONKI/',
+      status: feedStatus === 'live' ? 'live' : 'archived_verified',
+      dataOrigin: feedStatus === 'live' ? 'live' : 'cached',
+      measurementContext: 'Live Heliophysics Query — Quiet Sun Window',
+      caveat: 'Live DONKI query succeeded with zero reported CME/FLR/SEP/GST events in this window.',
+      summary: `Live NASA CCMC DONKI query (${windowStr}) completed cleanly with no major flares, CMEs, SEPs, or geomagnetic storms logged in the window.`,
+      metrics: {
+        'Query Window': windowStr,
+        'Events Logged': 0,
+        'Feed Origin': feedStatus.toUpperCase()
+      },
+      gameplayRelevance: 'Calm space-weather windows give EVA crews ideal conditions for surface construction and ice harvesting.'
+    };
+    return {
+      status: feedStatus,
+      observations: [quietObs],
+      telemetry: {
+        status: feedStatus,
+        lastUpdatedAt: payload.fetchedAt || new Date().toISOString(),
+        source: payload.source || 'NASA CCMC / DONKI Live Service'
+      },
+      warnings
+    };
+  }
+
+  // Request rejected (e.g. HTTP 502 with structured archiveFallback or network timeout)
+  const errObj = donkiRes.reason as HttpPayloadError | undefined;
+  const body = (errObj?.body || null) as DonkiProxyResponse | null;
+  const errMsg = errObj?.message || 'NASA DONKI live proxy unreachable.';
+  warnings.push(`DONKI: ${errMsg}`);
+
+  if (body?.archiveFallback && body.archiveFallback.length > 0) {
+    const archiveObs: NasaObservation[] = body.archiveFallback.map((ev) => ({
       id: ev.id,
       title: ev.title,
       type: ev.eventType,
       timestamp: ev.timestamp,
       source: ev.source,
       sourceUrl: ev.sourceUrl,
-      status: ev.status === 'live' ? 'live' : 'archived_verified',
-      dataOrigin: ev.status === 'live' ? (donkiRes.value.fromCache ? 'cached' : 'live') : 'curated',
-      measurementContext: 'Heliophysics Space-Weather Observation (Not Astronaut Dose)',
-      caveat: 'DONKI tracks solar flares, CMEs, SEPs, and geomagnetic storms; it does not report personal radiation doses.',
+      status: 'archived_verified',
+      dataOrigin: 'archive',
+      measurementContext: 'Heliophysics Space-Weather Benchmark Archive (Fallback)',
+      caveat: 'Showing verified historical DONKI record because live upstream was unreachable.',
       summary: ev.summary,
       metrics: ev.metrics,
       gameplayRelevance: ev.gameplayRelevance
     }));
-  } else {
-    donkiStatus = 'error';
-    warnings.push('NASA DONKI live proxy unavailable; showing verified archive event.');
+    return {
+      status: 'archive',
+      observations: archiveObs,
+      telemetry: {
+        status: 'archive',
+        lastUpdatedAt: null,
+        source: 'NASA DONKI Benchmark Archive',
+        error: errMsg
+      },
+      warnings
+    };
   }
 
-  // 2. OSDR Biology Studies
+  return {
+    status: 'archive',
+    observations: [VERIFIED_NASA_ARCHIVE[0]],
+    telemetry: {
+      status: 'archive',
+      lastUpdatedAt: null,
+      source: 'Verified DONKI Archive',
+      error: errMsg
+    },
+    warnings
+  };
+}
+
+function resolveOsdrSection(
+  results: Array<PromiseSettledResult<OsdrProxyResponse>>
+): { status: ScienceFeedStatus; observations: NasaObservation[]; telemetry: FeedTelemetry; warnings: string[] } {
   const osdrFallbackMap = new Map<string, NasaObservation>();
   for (const obs of VERIFIED_NASA_ARCHIVE.filter((o) => o.type === 'biology_osdr')) {
     osdrFallbackMap.set(obs.id, obs);
   }
 
-  const osdrResults = [osdr120Res, osdr520Res, osdr46Res];
+  const studyIds = ['OSD-120', 'OSD-520', 'OSD-46'];
   let osdrLiveCount = 0;
   let osdrCachedCount = 0;
-  const osdrObservations: NasaObservation[] = [];
-  const studyIds = ['OSD-120', 'OSD-520', 'OSD-46'];
+  let latestTimestamp: string | null = null;
+  const warnings: string[] = [];
+  const observations: NasaObservation[] = [];
 
-  osdrResults.forEach((result, idx) => {
-    const fallback = osdrFallbackMap.get(studyIds[idx]);
+  results.forEach((result, idx) => {
+    const id = studyIds[idx];
+    const fallback = osdrFallbackMap.get(id);
     if (result.status === 'fulfilled' && result.value?.accession) {
       const s = result.value;
-      if (s.status === 'live') osdrLiveCount++;
-      else osdrCachedCount++;
-      osdrObservations.push({
+      const isCached = s.status === 'cached' || Boolean(s.fromCache);
+      if (isCached) osdrCachedCount++;
+      else osdrLiveCount++;
+      if (s.warning) warnings.push(`${id}: ${s.warning}`);
+      if (!latestTimestamp || s.retrievedAt > latestTimestamp) {
+        latestTimestamp = s.retrievedAt;
+      }
+
+      observations.push({
         id: s.accession,
         title: `${s.title} (${s.accession})`,
         type: 'biology_osdr',
         timestamp: s.retrievedAt,
         source: s.sourceName,
         sourceUrl: s.sourceUrl,
-        status: s.status === 'live' ? 'live' : 'archived_verified',
-        dataOrigin: s.status,
+        status: isCached ? 'archived_verified' : 'live',
+        dataOrigin: isCached ? 'cached' : 'live',
         measurementContext: 'Verified NASA OSDR Study Metadata (via Backend Proxy)',
         summary: s.description || fallback?.summary || 'Verified NASA OSDR biological research record.',
         metrics: {
           'Study Accession': s.accession,
           'Experimental Factors': s.factors.slice(0, 3).join(', ') || 'Spaceflight / Radiation',
           'Assay Types': s.assayTypes.slice(0, 2).join(', ') || 'Omics / Phenotyping',
-          'Feed Status': s.status === 'live' ? 'Live OSDR API' : 'Cached OSDR API'
+          'Feed Status': isCached ? 'Cached OSDR API' : 'Live OSDR API'
         },
         gameplayRelevance:
           fallback?.gameplayRelevance ||
           'Supports Outpost Greenhouse biology and crew radiation protection principles.'
       });
-    } else if (fallback) {
-      osdrObservations.push(fallback);
+    } else {
+      const reasonMsg = result.status === 'rejected' ? (result.reason as Error)?.message || 'Unreachable' : 'Invalid payload';
+      warnings.push(`OSDR ${id}: ${reasonMsg}`);
+      if (fallback) {
+        observations.push({ ...fallback, dataOrigin: 'archive' });
+      }
     }
   });
 
-  const osdrStatus: ScienceFeedStatus =
-    osdrLiveCount > 0 ? 'live' : osdrCachedCount > 0 ? 'cached' : 'error';
-  if (osdrStatus === 'error') {
-    warnings.push('NASA OSDR metadata API unreachable; showing curated OSDR study summaries.');
-  }
+  const status: ScienceFeedStatus =
+    osdrLiveCount > 0 ? 'live' : osdrCachedCount > 0 ? 'cached' : observations.length > 0 ? 'archive' : 'error';
 
-  // 3. RadLab Radiation Baselines
-  let radlabStatus: ScienceFeedStatus = 'cached';
-  let radlabBaselines: RadLabBaseline[] = RADLAB_VERIFIED_BASELINES.map((b) => ({ ...b }));
+  return {
+    status,
+    observations,
+    telemetry: {
+      status,
+      lastUpdatedAt: latestTimestamp,
+      source: status === 'live' || status === 'cached' ? 'NASA OSDR Metadata API' : 'NASA OSDR Verified Summaries',
+      error: status === 'archive' || status === 'error' ? warnings[0] || 'NASA OSDR metadata API unreachable.' : undefined
+    },
+    warnings
+  };
+}
+
+function resolveRadLabSection(
+  radlabRes: PromiseSettledResult<RadLabProxyResponse>
+): { status: ScienceFeedStatus; baselines: RadLabBaseline[]; telemetry: FeedTelemetry; warnings: string[] } {
+  const warnings: string[] = [];
+
   if (radlabRes.status === 'fulfilled' && Array.isArray(radlabRes.value.baselines)) {
-    const apiItems = radlabRes.value.baselines;
-    radlabBaselines = RADLAB_VERIFIED_BASELINES.map((localItem) => {
-      const remote = apiItems.find((r) => r.id === localItem.id);
-      if (!remote) return localItem;
+    const payload = radlabRes.value;
+    if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+      warnings.push(...payload.warnings);
+    }
+
+    const feedStatus: ScienceFeedStatus =
+      payload.status === 'live' ? (payload.fromCache ? 'cached' : 'live') : 'cached';
+
+    const baselines = RADLAB_VERIFIED_BASELINES.map((localItem) => {
+      const remote = payload.baselines!.find((r) => r.id === localItem.id);
+      if (!remote) return { ...localItem, dataOrigin: 'cached' as const };
       return {
         ...localItem,
         sampleCount: remote.sampleCount,
         minDoseRate: remote.minDoseRate,
         meanDoseRate: remote.meanDoseRate,
         maxDoseRate: remote.maxDoseRate,
-        dataOrigin: remote.dataOrigin === 'live' ? 'live' : 'cached'
+        dataOrigin: (remote.dataOrigin === 'live' ? (payload.fromCache ? 'cached' : 'live') : 'cached') as 'live' | 'cached'
       };
     });
-    radlabStatus = radlabRes.value.status === 'live' ? 'live' : 'cached';
-    if (Array.isArray(radlabRes.value.warnings) && radlabRes.value.warnings.length > 0) {
-      warnings.push(...radlabRes.value.warnings);
-    }
-  } else {
-    radlabStatus = 'error';
-    warnings.push('RadLab baseline proxy unreachable; showing verified cached dosimetry baselines.');
+
+    return {
+      status: feedStatus,
+      baselines,
+      telemetry: {
+        status: feedStatus,
+        lastUpdatedAt: payload.fetchedAt || new Date().toISOString(),
+        source: payload.source || 'NASA OSDR RadLab Telemetry API',
+        error: warnings[0]
+      },
+      warnings
+    };
   }
 
-  // 4. Mars Trek WMTS
-  let marsTrekStatus: ScienceFeedStatus = 'curated';
-  const marsTrekSites: MarsTrekSite[] = MARS_TREK_SITES.map((s) => ({ ...s }));
+  const errObj = radlabRes.status === 'rejected' ? (radlabRes.reason as HttpPayloadError | undefined) : undefined;
+  const errMsg = errObj?.message || 'NASA RadLab baseline payload unavailable.';
+  warnings.push(`RadLab: ${errMsg}`);
+
+  const baselines = RADLAB_VERIFIED_BASELINES.map((b) => ({ ...b, dataOrigin: 'cached' as const }));
+  return {
+    status: 'archive',
+    baselines,
+    telemetry: {
+      status: 'archive',
+      lastUpdatedAt: null,
+      source: 'Verified RadLab Dosimetry Archive',
+      error: errMsg
+    },
+    warnings
+  };
+}
+
+function resolveMarsTrekSection(
+  marsRes: PromiseSettledResult<MarsTrekProxyResponse>
+): { status: ScienceFeedStatus; sites: MarsTrekSite[]; fetchedAt?: string; telemetry: FeedTelemetry; warnings: string[] } {
+  const warnings: string[] = [];
+
   if (marsRes.status === 'fulfilled') {
-    marsTrekStatus = marsRes.value.wmtsVerified ? (marsRes.value.fromCache ? 'cached' : 'live') : 'curated';
-    if (marsRes.value.wmtsVerified) {
-      marsTrekSites.forEach((site) => {
-        site.dataOrigin = 'live';
-      });
+    const payload = marsRes.value;
+    if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+      warnings.push(...payload.warnings);
     }
-  } else {
-    marsTrekStatus = 'error';
-    warnings.push('Mars Trek WMTS check failed; showing curated Mars Trek site metadata.');
+
+    const feedStatus: ScienceFeedStatus = payload.wmtsVerified
+      ? payload.fromCache
+        ? 'cached'
+        : 'live'
+      : 'archive';
+
+    const layerMap = payload.verifiedLayers || {};
+    const sites: MarsTrekSite[] = MARS_TREK_SITES.map((s) => {
+      const verified = payload.wmtsVerified && (layerMap[s.sampleTile.layerKey] !== false);
+      return {
+        ...s,
+        dataOrigin: verified ? 'live' : 'curated'
+      };
+    });
+
+    return {
+      status: feedStatus,
+      sites,
+      fetchedAt: payload.fetchedAt,
+      telemetry: {
+        status: feedStatus,
+        lastUpdatedAt: payload.fetchedAt || new Date().toISOString(),
+        source: payload.source || 'NASA Solar System Treks WMTS',
+        error: warnings[0]
+      },
+      warnings
+    };
   }
 
-  // Combine unified observations for drawer rendering
+  const errObj = marsRes.reason as HttpPayloadError | undefined;
+  const errMsg = errObj?.message || 'NASA Mars Trek WMTS check unreachable.';
+  warnings.push(`Mars Trek: ${errMsg}`);
+
+  return {
+    status: 'archive',
+    sites: MARS_TREK_SITES.map((s) => ({ ...s, dataOrigin: 'curated' as const })),
+    telemetry: {
+      status: 'archive',
+      lastUpdatedAt: null,
+      source: 'Mars Trek Verified Site Catalog',
+      error: errMsg
+    },
+    warnings
+  };
+}
+
+function buildUnifiedObservations(
+  donkiObservations: NasaObservation[],
+  radlabBaselines: RadLabBaseline[],
+  radlabStatus: ScienceFeedStatus,
+  osdrObservations: NasaObservation[],
+  marsTrekSites: MarsTrekSite[],
+  marsTrekStatus: ScienceFeedStatus,
+  marsFetchedAt?: string
+): NasaObservation[] {
   const artemisRef = VERIFIED_NASA_ARCHIVE.find((o) => o.id === 'NASA-ARTEMIS-LRO-DIV');
-  const observations: NasaObservation[] = [
+  const radOriginOverride: NasaObservation['dataOrigin'] | undefined =
+    radlabStatus === 'archive' ? 'archive' : undefined;
+  const marsOriginOverride: NasaObservation['dataOrigin'] | undefined =
+    marsTrekStatus === 'cached' ? 'cached' : marsTrekStatus === 'archive' ? 'archive' : undefined;
+
+  return [
     ...donkiObservations,
-    ...radlabBaselines.map(radLabToObservation),
+    ...radlabBaselines.map((b) => radLabToObservation(b, radOriginOverride)),
     ...osdrObservations,
-    ...marsTrekSites.map(marsTrekToObservation),
+    ...marsTrekSites.map((s) => marsTrekToObservation(s, marsOriginOverride, marsFetchedAt)),
     ...CSA_FOOD_PRODUCTION_RESOURCES.map(csaToObservation),
     ...(artemisRef ? [artemisRef] : [])
   ];
+}
 
-  const isLive = donkiStatus === 'live' || osdrStatus === 'live' || radlabStatus === 'live' || marsTrekStatus === 'live';
+export async function fetchPhase2ScienceBundle(options?: {
+  liveRadLab?: boolean;
+  forceRefresh?: boolean;
+}): Promise<Phase2ScienceBundle> {
+  const liveRadLab = options?.liveRadLab ?? true;
+  const refreshQs = options?.forceRefresh ? '&refresh=true' : '';
+  const osdrRefreshQs = options?.forceRefresh ? '?refresh=true' : '';
+
+  const [donkiRes, osdr120Res, osdr520Res, osdr46Res, radlabRes, marsRes] = await Promise.allSettled([
+    fetchJsonLocal<DonkiProxyResponse>(`/api/nasa/donki?type=all&days=30${refreshQs}`),
+    fetchJsonLocal<OsdrProxyResponse>(`/api/nasa/osdr/study/120${osdrRefreshQs}`),
+    fetchJsonLocal<OsdrProxyResponse>(`/api/nasa/osdr/study/520${osdrRefreshQs}`),
+    fetchJsonLocal<OsdrProxyResponse>(`/api/nasa/osdr/study/46${osdrRefreshQs}`),
+    fetchJsonLocal<RadLabProxyResponse>(`/api/nasa/radlab/baselines?live=${liveRadLab ? 'true' : 'false'}${refreshQs}`),
+    fetchJsonLocal<MarsTrekProxyResponse>(`/api/nasa/mars/terrain?site=all${refreshQs}`)
+  ]);
+
+  const donki = resolveDonkiSection(donkiRes);
+  const osdr = resolveOsdrSection([osdr120Res, osdr520Res, osdr46Res]);
+  const radlab = resolveRadLabSection(radlabRes);
+  const mars = resolveMarsTrekSection(marsRes);
+
+  const warnings = [...donki.warnings, ...osdr.warnings, ...radlab.warnings, ...mars.warnings];
+
+  const observations = buildUnifiedObservations(
+    donki.observations,
+    radlab.baselines,
+    radlab.status,
+    osdr.observations,
+    mars.sites,
+    mars.status,
+    mars.fetchedAt
+  );
+
+  const isLive =
+    donki.status === 'live' ||
+    osdr.status === 'live' ||
+    radlab.status === 'live' ||
+    mars.status === 'live';
 
   return {
     observations,
-    radlabBaselines,
+    radlabBaselines: radlab.baselines,
     csaFoodResources: CSA_FOOD_PRODUCTION_RESOURCES,
-    marsTrekSites,
-    donkiStatus,
-    osdrStatus,
-    radlabStatus,
-    marsTrekStatus,
+    marsTrekSites: mars.sites,
+    donkiStatus: donki.status,
+    osdrStatus: osdr.status,
+    radlabStatus: radlab.status,
+    marsTrekStatus: mars.status,
     csaStatus: 'curated',
+    feeds: {
+      donki: donki.telemetry,
+      osdr: osdr.telemetry,
+      radlab: radlab.telemetry,
+      marsTrek: mars.telemetry,
+      csa: {
+        status: 'curated',
+        lastUpdatedAt: null,
+        source: 'Canadian Space Agency (Curated Educational Dataset)'
+      }
+    },
+    isLive,
+    lastSyncedAt: new Date().toISOString(),
+    warnings
+  };
+}
+
+export async function retrySingleScienceFeed(
+  currentBundle: Phase2ScienceBundle,
+  feed: RetryableFeed
+): Promise<Phase2ScienceBundle> {
+  const existingDonki = currentBundle.observations.filter(
+    (o) => o.type === 'solar_flare' || o.type === 'cme' || o.type === 'sep' || o.type === 'geomagnetic'
+  );
+  const existingOsdr = currentBundle.observations.filter((o) => o.type === 'biology_osdr');
+
+  let donki = {
+    status: currentBundle.donkiStatus,
+    observations: existingDonki,
+    telemetry: currentBundle.feeds.donki,
+    warnings: [] as string[]
+  };
+  let osdr = {
+    status: currentBundle.osdrStatus,
+    observations: existingOsdr,
+    telemetry: currentBundle.feeds.osdr,
+    warnings: [] as string[]
+  };
+  let radlab = {
+    status: currentBundle.radlabStatus,
+    baselines: currentBundle.radlabBaselines,
+    telemetry: currentBundle.feeds.radlab,
+    warnings: [] as string[]
+  };
+  let mars: {
+    status: ScienceFeedStatus;
+    sites: MarsTrekSite[];
+    fetchedAt?: string;
+    telemetry: FeedTelemetry;
+    warnings: string[];
+  } = {
+    status: currentBundle.marsTrekStatus,
+    sites: currentBundle.marsTrekSites,
+    fetchedAt: currentBundle.feeds.marsTrek.lastUpdatedAt || undefined,
+    telemetry: currentBundle.feeds.marsTrek,
+    warnings: []
+  };
+
+  if (feed === 'donki') {
+    const [res] = await Promise.allSettled([
+      fetchJsonLocal<DonkiProxyResponse>('/api/nasa/donki?type=all&days=30&refresh=true')
+    ]);
+    donki = resolveDonkiSection(res);
+  } else if (feed === 'osdr') {
+    const results = await Promise.allSettled([
+      fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/120?refresh=true'),
+      fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/520?refresh=true'),
+      fetchJsonLocal<OsdrProxyResponse>('/api/nasa/osdr/study/46?refresh=true')
+    ]);
+    osdr = resolveOsdrSection(results);
+  } else if (feed === 'radlab') {
+    const [res] = await Promise.allSettled([
+      fetchJsonLocal<RadLabProxyResponse>('/api/nasa/radlab/baselines?live=true&refresh=true')
+    ]);
+    radlab = resolveRadLabSection(res);
+  } else if (feed === 'marsTrek') {
+    const [res] = await Promise.allSettled([
+      fetchJsonLocal<MarsTrekProxyResponse>('/api/nasa/mars/terrain?site=all&refresh=true')
+    ]);
+    mars = resolveMarsTrekSection(res);
+  }
+
+  const warnings = [...donki.warnings, ...osdr.warnings, ...radlab.warnings, ...mars.warnings];
+  const observations = buildUnifiedObservations(
+    donki.observations,
+    radlab.baselines,
+    radlab.status,
+    osdr.observations,
+    mars.sites,
+    mars.status,
+    mars.fetchedAt
+  );
+
+  const isLive =
+    donki.status === 'live' ||
+    osdr.status === 'live' ||
+    radlab.status === 'live' ||
+    mars.status === 'live';
+
+  return {
+    observations,
+    radlabBaselines: radlab.baselines,
+    csaFoodResources: CSA_FOOD_PRODUCTION_RESOURCES,
+    marsTrekSites: mars.sites,
+    donkiStatus: donki.status,
+    osdrStatus: osdr.status,
+    radlabStatus: radlab.status,
+    marsTrekStatus: mars.status,
+    csaStatus: 'curated',
+    feeds: {
+      donki: donki.telemetry,
+      osdr: osdr.telemetry,
+      radlab: radlab.telemetry,
+      marsTrek: mars.telemetry,
+      csa: currentBundle.feeds.csa
+    },
     isLive,
     lastSyncedAt: new Date().toISOString(),
     warnings

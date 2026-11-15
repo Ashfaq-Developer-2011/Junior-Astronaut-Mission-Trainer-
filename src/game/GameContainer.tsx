@@ -16,6 +16,8 @@ import { CameraOrbitDelta } from './components/ThirdPersonCamera';
 import {
   fetchPhase2ScienceBundle,
   Phase2ScienceBundle,
+  RetryableFeed,
+  retrySingleScienceFeed,
   VERIFIED_NASA_ARCHIVE
 } from '../services/nasaData';
 import { sound } from '../services/audio';
@@ -129,6 +131,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   );
   const [isNasaLive, setIsNasaLive] = useState(Boolean(initialScienceBundle?.isLive));
   const [isScienceRefreshing, setIsScienceRefreshing] = useState(false);
+  const [retryingFeed, setRetryingFeed] = useState<RetryableFeed | null>(null);
   const [scienceError, setScienceError] = useState<string | null>(null);
   const [activeScienceBrief, setActiveScienceBrief] = useState<ScienceFieldBrief | null>(null);
 
@@ -269,11 +272,11 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     }
   }, [computeInteractPrompt, persistCheckpoint]);
 
-  const refreshScienceData = useCallback(async (liveRadLab = false) => {
+  const refreshScienceData = useCallback(async (liveRadLab = true, forceRefresh = false) => {
     setIsScienceRefreshing(true);
     setScienceError(null);
     try {
-      const bundle = await fetchPhase2ScienceBundle({ liveRadLab });
+      const bundle = await fetchPhase2ScienceBundle({ liveRadLab, forceRefresh });
       engineRef.current?.applyScienceBundle(bundle);
       setScienceBundle(bundle);
       setNasaObservations(bundle.observations);
@@ -284,6 +287,29 @@ export const GameContainer: React.FC<GameContainerProps> = ({
       setIsScienceRefreshing(false);
     }
   }, []);
+
+  const handleRetryFeed = useCallback(
+    async (feed: RetryableFeed) => {
+      if (!scienceBundle) {
+        await refreshScienceData(true, true);
+        return;
+      }
+      setRetryingFeed(feed);
+      setScienceError(null);
+      try {
+        const updated = await retrySingleScienceFeed(scienceBundle, feed);
+        engineRef.current?.applyScienceBundle(updated);
+        setScienceBundle(updated);
+        setNasaObservations(updated.observations);
+        setIsNasaLive(updated.isLive);
+      } catch {
+        setScienceError(`Unable to retry ${feed} feed right now.`);
+      } finally {
+        setRetryingFeed(null);
+      }
+    },
+    [scienceBundle, refreshScienceData]
+  );
 
   useEffect(() => {
     const updateViewportFlags = () => {
@@ -308,7 +334,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     if (initialScienceBundle) {
       engine.applyScienceBundle(initialScienceBundle);
     } else {
-      void refreshScienceData(false);
+      void refreshScienceData(true, false);
     }
 
     if (!initialSave) {
@@ -754,8 +780,12 @@ export const GameContainer: React.FC<GameContainerProps> = ({
         observations={nasaObservations}
         isLive={isNasaLive}
         onRefresh={() => {
-          void refreshScienceData(true);
+          void refreshScienceData(true, true);
         }}
+        onRetryFeed={(feed) => {
+          void handleRetryFeed(feed);
+        }}
+        retryingFeed={retryingFeed}
         isRefreshing={isScienceRefreshing}
         bundle={scienceBundle}
         errorMessage={scienceError}

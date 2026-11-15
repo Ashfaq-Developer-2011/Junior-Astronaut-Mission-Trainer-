@@ -4,10 +4,15 @@ import {
   ExternalLink,
   RefreshCw,
   AlertTriangle,
-  Info
+  Info,
+  RotateCw
 } from 'lucide-react';
 import { NasaObservation } from '../types/game';
-import { Phase2ScienceBundle, ScienceFeedStatus } from '../services/nasaData';
+import {
+  Phase2ScienceBundle,
+  RetryableFeed,
+  ScienceFeedStatus
+} from '../services/nasaData';
 import { sound } from '../services/audio';
 
 interface NasaScienceDrawerProps {
@@ -16,6 +21,8 @@ interface NasaScienceDrawerProps {
   observations: NasaObservation[];
   isLive: boolean;
   onRefresh: () => void;
+  onRetryFeed?: (feed: RetryableFeed) => void;
+  retryingFeed?: RetryableFeed | null;
   isRefreshing?: boolean;
   bundle?: Phase2ScienceBundle | null;
   errorMessage?: string | null;
@@ -26,15 +33,18 @@ type DrawerTab = 'all' | 'solar' | 'radlab' | 'biology' | 'planetary' | 'csa_foo
 function getOriginMeta(obs: NasaObservation): { label: string; colorClass: string } {
   const origin = obs.dataOrigin || (obs.status === 'live' ? 'live' : 'curated');
   if (origin === 'live') {
-    return { label: 'Live API Telemetry', colorClass: 'text-[#79A88B]' };
+    return { label: 'LIVE API TELEMETRY', colorClass: 'text-[#79A88B]' };
   }
   if (origin === 'cached') {
-    return { label: 'Cached Telemetry', colorClass: 'text-[#78A9C8]' };
+    return { label: 'CACHED TELEMETRY', colorClass: 'text-[#78A9C8]' };
+  }
+  if (origin === 'archive') {
+    return { label: 'ARCHIVE RECORD', colorClass: 'text-[#D2A45F]' };
   }
   if (origin === 'simulated') {
-    return { label: 'Simulated Gameplay', colorClass: 'text-[#D2A45F]' };
+    return { label: 'SIMULATED GAMEPLAY', colorClass: 'text-[#D2A45F]' };
   }
-  return { label: 'Curated Official Record', colorClass: 'text-[#AAB5BE]' };
+  return { label: 'CURATED EDUCATIONAL', colorClass: 'text-[#AAB5BE]' };
 }
 
 function getStatusTextColor(status: ScienceFeedStatus): string {
@@ -45,9 +55,18 @@ function getStatusTextColor(status: ScienceFeedStatus): string {
       return 'text-[#78A9C8]';
     case 'curated':
       return 'text-[#AAB5BE]';
-    case 'error':
+    case 'archive':
       return 'text-[#D2A45F]';
+    case 'error':
+      return 'text-[#E06C75]';
   }
+}
+
+function formatUtcShort(iso: string | null | undefined): string {
+  if (!iso) return 'Not yet synced live';
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return iso;
+  return new Date(parsed).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 }
 
 export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
@@ -56,6 +75,8 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
   observations,
   isLive,
   onRefresh,
+  onRetryFeed,
+  retryingFeed = null,
   isRefreshing = false,
   bundle = null,
   errorMessage = null
@@ -79,6 +100,63 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
 
   const warnings = bundle?.warnings || [];
 
+  const feedRows: Array<{
+    key: RetryableFeed | 'csa';
+    label: string;
+    status: ScienceFeedStatus;
+    source: string;
+    lastUpdatedAt: string | null;
+    error?: string;
+    retryable: boolean;
+  }> = bundle
+    ? [
+        {
+          key: 'donki',
+          label: 'DONKI',
+          status: bundle.donkiStatus,
+          source: bundle.feeds?.donki?.source || 'NASA CCMC / DONKI',
+          lastUpdatedAt: bundle.feeds?.donki?.lastUpdatedAt ?? null,
+          error: bundle.feeds?.donki?.error,
+          retryable: true
+        },
+        {
+          key: 'radlab',
+          label: 'RadLab',
+          status: bundle.radlabStatus,
+          source: bundle.feeds?.radlab?.source || 'NASA OSDR RadLab',
+          lastUpdatedAt: bundle.feeds?.radlab?.lastUpdatedAt ?? null,
+          error: bundle.feeds?.radlab?.error,
+          retryable: true
+        },
+        {
+          key: 'osdr',
+          label: 'OSDR',
+          status: bundle.osdrStatus,
+          source: bundle.feeds?.osdr?.source || 'NASA OSDR API',
+          lastUpdatedAt: bundle.feeds?.osdr?.lastUpdatedAt ?? null,
+          error: bundle.feeds?.osdr?.error,
+          retryable: true
+        },
+        {
+          key: 'marsTrek',
+          label: 'Mars Trek',
+          status: bundle.marsTrekStatus,
+          source: bundle.feeds?.marsTrek?.source || 'NASA Mars Trek WMTS',
+          lastUpdatedAt: bundle.feeds?.marsTrek?.lastUpdatedAt ?? null,
+          error: bundle.feeds?.marsTrek?.error,
+          retryable: true
+        },
+        {
+          key: 'csa',
+          label: 'CSA Food',
+          status: 'curated',
+          source: bundle.feeds?.csa?.source || 'CSA Educational Reference',
+          lastUpdatedAt: null,
+          retryable: false
+        }
+      ]
+    : [];
+
   return (
     <div
       role="dialog"
@@ -94,8 +172,16 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
               <span className="text-[#78A9C8]">NASA &amp; CSA Open Science Center</span>
               <span className="text-[#35434E]" aria-hidden="true">·</span>
               <span className={isLive ? 'text-[#79A88B]' : 'text-[#AAB5BE]'}>
-                {isLive ? 'Server Proxy Live' : 'Verified Cached / Curated'}
+                {isLive ? 'Live Proxy Active' : 'Cached / Archive / Curated'}
               </span>
+              {bundle?.lastSyncedAt && (
+                <>
+                  <span className="text-[#35434E]" aria-hidden="true">·</span>
+                  <span className="text-[#8895A0]">
+                    Checked {formatUtcShort(bundle.lastSyncedAt)}
+                  </span>
+                </>
+              )}
             </div>
             <h2 className="text-lg sm:text-xl font-semibold text-[#F0F2F3]">
               Official NASA &amp; Canadian Space Agency Science Data
@@ -109,10 +195,10 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
                 sound.playClick();
                 onRefresh();
               }}
-              disabled={isRefreshing}
+              disabled={isRefreshing || Boolean(retryingFeed)}
               aria-label="Refresh NASA and CSA telemetry feeds"
               className="h-9 px-3 rounded-lg bg-[#202C36] hover:bg-[#2A3946] border border-[#35434E] text-[#F0F2F3] text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60"
-              title="Refresh NASA & CSA Feeds"
+              title="Force Refresh All Live NASA Feeds"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#78A9C8]' : 'text-[#AAB5BE]'}`} />
               <span className="hidden sm:inline">Refresh</span>
@@ -132,22 +218,50 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
           </div>
         </div>
 
-        {/* Unboxed Provenance Strip */}
+        {/* Feed Provenance Strip with Per-Feed Status, Timestamp & Individual Retry */}
         {bundle && (
-          <div className="mb-3 pb-3 border-b border-[#35434E] flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono-tech">
-            <span className={getStatusTextColor(bundle.donkiStatus)}>
-              DONKI: {bundle.donkiStatus.toUpperCase()}
-            </span>
-            <span className={getStatusTextColor(bundle.radlabStatus)}>
-              RadLab: {bundle.radlabStatus.toUpperCase()}
-            </span>
-            <span className={getStatusTextColor(bundle.osdrStatus)}>
-              OSDR: {bundle.osdrStatus.toUpperCase()}
-            </span>
-            <span className={getStatusTextColor(bundle.marsTrekStatus)}>
-              Mars Trek: {bundle.marsTrekStatus.toUpperCase()}
-            </span>
-            <span className="text-[#AAB5BE]">CSA Food: CURATED</span>
+          <div className="mb-3 pb-3 border-b border-[#35434E] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {feedRows.map((row) => {
+              const isFeedRetrying = retryingFeed === row.key;
+              return (
+                <div
+                  key={row.key}
+                  className="px-2.5 py-2 rounded-md bg-[#202C36] border border-[#35434E] flex flex-col justify-between gap-1"
+                  title={row.error ? `${row.source} — ${row.error}` : `${row.source} · ${formatUtcShort(row.lastUpdatedAt)}`}
+                >
+                  <div className="flex items-center justify-between gap-1 text-xs font-mono-tech">
+                    <span className="text-[#F0F2F3] font-semibold">{row.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={getStatusTextColor(row.status)}>
+                        {row.status.toUpperCase()}
+                      </span>
+                      {row.retryable && onRetryFeed && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.playClick();
+                            onRetryFeed(row.key as RetryableFeed);
+                          }}
+                          disabled={isRefreshing || Boolean(retryingFeed)}
+                          aria-label={`Retry ${row.label} live feed`}
+                          title={`Retry ${row.label} feed`}
+                          className="p-1 rounded hover:bg-[#2A3946] text-[#AAB5BE] hover:text-[#F0F2F3] disabled:opacity-50 transition-colors"
+                        >
+                          <RotateCw className={`w-3 h-3 ${isFeedRetrying ? 'animate-spin text-[#78A9C8]' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-mono-tech text-[#8895A0] truncate">
+                    {row.error
+                      ? row.error
+                      : row.status === 'curated'
+                        ? 'Educational reference'
+                        : formatUtcShort(row.lastUpdatedAt)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -157,10 +271,14 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
         </div>
 
         {/* Loading or Error / Warning States */}
-        {isRefreshing && (
+        {(isRefreshing || retryingFeed) && (
           <div className="mb-3 px-3.5 py-2 rounded-lg bg-[#202C36] border border-[#78A9C8]/50 text-xs font-mono-tech text-[#78A9C8] flex items-center gap-2">
             <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
-            <span>Syncing NASA DONKI, OSDR, RadLab, and Mars Trek feeds via server proxy...</span>
+            <span>
+              {retryingFeed
+                ? `Retrying ${retryingFeed} live feed via server proxy...`
+                : 'Syncing live NASA DONKI, OSDR, RadLab, and Mars Trek feeds via server proxy...'}
+            </span>
           </div>
         )}
 
@@ -168,7 +286,7 @@ export const NasaScienceDrawer: React.FC<NasaScienceDrawerProps> = ({
           <div className="mb-3 px-3.5 py-2.5 rounded-lg bg-[#282118] border border-[#D2A45F]/60 text-xs text-[#F0F2F3] flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-[#D2A45F] shrink-0 mt-0.5" />
             <div className="text-[#AAB5BE]">
-              <span className="font-semibold text-[#D2A45F]">Upstream Notice:</span>{' '}
+              <span className="font-semibold text-[#D2A45F]">Feed Diagnostic:</span>{' '}
               {errorMessage || warnings.join(' · ')}
             </div>
           </div>

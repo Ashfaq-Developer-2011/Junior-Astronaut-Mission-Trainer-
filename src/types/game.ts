@@ -157,7 +157,7 @@ export interface NasaObservation {
   source: string;
   sourceUrl: string;
   status: 'live' | 'archived_verified';
-  dataOrigin?: 'live' | 'cached' | 'curated' | 'simulated';
+  dataOrigin?: 'live' | 'cached' | 'curated' | 'archive' | 'simulated';
   unit?: string;
   measurementContext?: string;
   caveat?: string;

@@ -7,7 +7,7 @@ export interface MarsTrekSite {
   resolution: string;
   centerCoords: { lat: number; lon: number; label: string };
   boundingBox?: { minLon: number; minLat: number; maxLon: number; maxLat: number };
-  sampleTile: { layerKey: 'jezero_ctx' | 'viking_global'; z: number; row: number; col: number; format: 'png' | 'jpg' };
+  sampleTile: { layerKey: 'jezero_ctx' | 'jezero_hirise' | 'viking_global'; z: number; row: number; col: number; format: 'png' | 'jpg' };
   wmtsCapabilitiesUrl: string;
   sourceName: string;
   sourceUrl: string;
@@ -48,7 +48,7 @@ export const MARS_TREK_SITES: MarsTrekSite[] = [
     instrument: 'Mars Reconnaissance Orbiter — HiRISE Camera',
     resolution: '25 centimeters / pixel (Equirectangular)',
     centerCoords: { lat: 18.38, lon: 77.58, label: '18.38° N, 77.58° E (Perseverance Landing Site)' },
-    sampleTile: { layerKey: 'jezero_ctx', z: 8, row: 102, col: 365, format: 'png' },
+    sampleTile: { layerKey: 'jezero_hirise', z: 8, row: 101, col: 366, format: 'png' },
     wmtsCapabilitiesUrl:
       'https://trek.nasa.gov/tiles/Mars/EQ/JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd/1.0.0/WMTSCapabilities.xml',
     sourceName: 'NASA Solar System Treks — Mars Trek WMTS',
