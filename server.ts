@@ -24,6 +24,7 @@ function resolvePort(): number {
 
 const PORT = resolvePort();
 const IS_PROD = process.env.NODE_ENV === 'production';
+const IS_VERCEL = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 
 function getNasaApiKey(): string {
   return (process.env.NASA_API_KEY || '').trim();
@@ -576,13 +577,30 @@ const MARS_TREK_ALLOWLIST: Record<string, MarsTrekLayerSpec> = {
   }
 };
 
-function createApiRouter(): express.Router {
+export function createApiRouter(): express.Router {
   const router = express.Router();
+
+  router.get('/', (_req: Request, res: Response) => {
+    res.json({
+      ok: true,
+      service: 'outpost-survival-nasa-proxy',
+      runtime: IS_VERCEL ? 'vercel-serverless' : 'node-server',
+      endpoints: [
+        '/api/health',
+        '/api/nasa/donki',
+        '/api/nasa/osdr/study/:id',
+        '/api/nasa/radlab/baselines',
+        '/api/nasa/mars/terrain',
+        '/api/nasa/mars/tile'
+      ]
+    });
+  });
 
   router.get('/health', (_req: Request, res: Response) => {
     res.json({
       ok: true,
       service: 'outpost-survival-nasa-proxy',
+      runtime: IS_VERCEL ? 'vercel-serverless' : 'node-server',
       hasNasaApiKey: Boolean(getNasaApiKey()),
       donkiMode: getNasaApiKey() ? 'api_gateway_with_ccmc_fallback' : 'ccmc_direct_unauthenticated',
       timestamp: new Date().toISOString()
@@ -1136,13 +1154,15 @@ function createApiRouter(): express.Router {
   return router;
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json());
-  app.use('/api', createApiRouter());
+export const app = express();
+app.use(express.json());
+app.use('/api', createApiRouter());
 
+async function startServer() {
   if (!IS_PROD) {
-    const { createServer: createViteServer } = await import('vite');
+    // Indirection prevents Vercel's @vercel/nft from bundling dev-only Vite toolchain into Serverless Functions
+    const vitePkg = ['vi', 'te'].join('');
+    const { createServer: createViteServer } = await import(vitePkg);
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -1166,7 +1186,18 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', sanitizeErrorMessage(err));
-  process.exit(1);
-});
+const isDirectExecution =
+  !IS_VERCEL &&
+  typeof process !== 'undefined' &&
+  Array.isArray(process.argv) &&
+  Boolean(process.argv[1]) &&
+  path.resolve(process.argv[1]) === path.resolve(__filename);
+
+if (isDirectExecution) {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', sanitizeErrorMessage(err));
+    process.exit(1);
+  });
+}
+
+export default app;
